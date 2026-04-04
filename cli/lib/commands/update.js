@@ -60,7 +60,7 @@ function getProjectRoot() {
 async function fetchLatestRelease() {
   try {
     const response = await fetch(
-      'https://api.github.com/repos/networkchuck/claude-phone/releases/latest',
+      'https://api.github.com/repos/lacavatech/claude-phone/releases/latest',
       {
         headers: {
           'User-Agent': 'claude-phone-cli',
@@ -160,7 +160,7 @@ function showManualInstructions(release) {
   console.log(chalk.bold('   cp ~/.claude-phone/config.json ~/config.json.backup\n'));
 
   console.log(chalk.gray('3. Run the installer:'));
-  console.log(chalk.bold('   curl -sSL https://raw.githubusercontent.com/theNetworkChuck/claude-phone/main/install.sh | bash\n'));
+  console.log(chalk.bold('   curl -sSL https://raw.githubusercontent.com/lacavatech/claude-phone/main/install.sh | bash\n'));
 
   console.log(chalk.gray('4. Start services:'));
   console.log(chalk.bold('   claude-phone start\n'));
@@ -199,7 +199,7 @@ export async function updateCommand() {
       showManualInstructions(release);
     } catch (error) {
       console.log(chalk.red(`\n✗ ${error.message}\n`));
-      console.log(chalk.gray('Visit https://github.com/networkchuck/claude-phone for manual update\n'));
+      console.log(chalk.gray('Visit https://github.com/lacavatech/claude-phone for manual update\n'));
     }
   }
 }

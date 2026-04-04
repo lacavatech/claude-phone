@@ -15,6 +15,6 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "author": "NetworkChuck",
+  "author": "lacavatech",
   "license": "MIT"
 }

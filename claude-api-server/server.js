@@ -34,7 +34,7 @@ const PORT = process.env.PORT || 3333;
  * with your zsh profile fully loaded.
  */
 function buildClaudeEnvironment() {
-  const HOME = process.env.HOME || '/Users/networkchuck';
+  const HOME = process.env.HOME || process.env.USERPROFILE || '/root';
   const PAI_DIR = path.join(HOME, '.claude');
 
   // Load ~/.claude/.env (all API keys)

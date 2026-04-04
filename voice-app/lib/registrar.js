@@ -77,7 +77,7 @@ class Registrar {
           'To': '<' + fromUri + '>',
           'Contact': '<' + contactUri + '>;expires=' + this.expiry,
           'Expires': this.expiry.toString(),
-          'User-Agent': 'NetworkChuck-VoiceServer/1.0'
+          'User-Agent': 'ClaudePhone-VoiceServer/1.0'
         },
         auth: {
           username: this.authUsername,

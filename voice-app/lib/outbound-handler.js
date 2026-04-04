@@ -91,7 +91,7 @@ async function initiateOutboundCall(srf, mediaServer, options) {
       localSdp: localSdp,
       headers: {
         'From': fromHeader,
-        'User-Agent': 'NetworkChuck-VoiceServer/1.0',
+        'User-Agent': 'ClaudePhone-VoiceServer/1.0',
         'X-Call-ID': callId
       }
     };

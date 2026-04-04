@@ -1,7 +1,7 @@
 {
   "name": "claude-phone",
   "version": "1.0.0",
-  "description": "Voice interface for Claude Code via SIP/3CX",
+  "description": "Voice interface for Claude Code via SIP",
   "private": true,
   "scripts": {
     "test": "npm run test:cli && npm run test:voice-app",
@@ -21,6 +21,6 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "author": "NetworkChuck",
+  "author": "lacavatech",
   "license": "MIT"
 }
