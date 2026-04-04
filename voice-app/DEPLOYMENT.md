@@ -31,7 +31,7 @@ Claude Phone consists of three Docker containers and an optional API server:
 | Port | Protocol | Service | Direction |
 |------|----------|---------|-----------|
 | 5060 | UDP/TCP | SIP signaling (drachtio) | Inbound |
-| 5070 | UDP/TCP | SIP signaling (if 3CX SBC present) | Inbound |
+| 5070 | UDP/TCP | SIP signaling (alternate — used when another SIP process occupies 5060) | Inbound |
 | 3000 | TCP | Voice app HTTP API | Inbound (optional) |
 | 3333 | TCP | Claude API server | Internal |
 | 30000-30100 | UDP | RTP audio (FreeSWITCH) | Bidirectional |
@@ -77,7 +77,7 @@ This allows FreeSWITCH to bind RTP ports directly.
 
 ### RTP Port Range
 
-FreeSWITCH uses ports 30000-30100 by default (configured to avoid conflict with 3CX SBC which uses 20000-20099):
+FreeSWITCH uses ports 30000-30100 by default. This range was chosen to avoid conflict with 3CX SBC (which uses 20000-20099); it works equally well with FreePBX and Asterisk deployments:
 
 ```yaml
 freeswitch:
@@ -96,8 +96,12 @@ Key environment variables in the generated `.env`:
 | `CLAUDE_API_URL` | URL to claude-api-server |
 | `ELEVENLABS_API_KEY` | TTS API key |
 | `OPENAI_API_KEY` | Whisper STT API key |
-| `SIP_DOMAIN` | 3CX server FQDN |
+| `SIP_DOMAIN` | PBX server FQDN or IP |
 | `SIP_REGISTRAR` | SIP registrar address |
+| `SIP_PASSWORD` | SIP extension password |
+| `SIP_USERNAME` | SIP auth username (3CX only — omit for FreePBX/Asterisk) |
+| `SIP_TRUNK_HOST` | PBX/trunk IP for outbound calls |
+| `OUTBOUND_PSTN_PREFIX` | Digit prefix for PSTN calls (e.g., `9` for 3CX, blank for FreePBX) |
 
 ## Split Deployment
 
@@ -105,7 +109,7 @@ Key environment variables in the generated `.env`:
 
 Requirements:
 - Docker and Docker Compose
-- Network access to 3CX and API server
+- Network access to your PBX and the API server
 - Static IP recommended
 
 The voice server runs Docker containers and connects to a remote API server:
@@ -217,10 +221,20 @@ Error connecting to Claude API
 
 ### SIP Registration Fails
 
-1. Verify 3CX extension credentials
-2. Check SIP domain and registrar settings
-3. Ensure port 5060 (or 5070) is not blocked
-4. Verify no other service is using the SIP port
+**3CX:**
+1. The Auth ID in 3CX is separate from the extension number — make sure `SIP_USERNAME` is set to the Auth ID (not the extension number) in `.env`
+2. Verify `SIP_DOMAIN` matches your 3CX FQDN exactly
+3. Check 3CX admin panel → Extensions to confirm the extension is enabled
+
+**FreePBX / Asterisk:**
+1. Leave `SIP_USERNAME` unset — FreePBX authenticates with the extension number directly
+2. Use a PJSIP extension type (not chan_sip) for best compatibility
+3. Verify the extension is enabled and not locked in FreePBX Admin → Applications → Extensions
+
+**All PBXes:**
+1. Check SIP domain and registrar settings match your PBX
+2. Ensure port 5060 (or 5070) is not blocked by firewall
+3. Run `claude-phone doctor` to diagnose connectivity issues
 
 ### API Server Connection Issues
 

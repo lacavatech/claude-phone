@@ -54,14 +54,16 @@ var config = {
   },
   sip: {
     extension: process.env.SIP_EXTENSION || "9000",
-    auth_id: process.env.SIP_AUTH_ID || "Au0XZPTpJY",
-    password: process.env.SIP_AUTH_PASSWORD || "DGHwMW6v25",
-    domain: process.env.SIP_DOMAIN || "hello.networkchuck.com",
-    registrar: process.env.SIP_REGISTRAR || "hello.networkchuck.com",
+    // auth_id is optional: 3CX uses a separate auth ID (SIP_USERNAME or legacy SIP_AUTH_ID);
+    // FreePBX/Asterisk use the extension number as the auth username (leave unset)
+    auth_id: process.env.SIP_USERNAME || process.env.SIP_AUTH_ID || null,
+    password: process.env.SIP_PASSWORD || process.env.SIP_AUTH_PASSWORD || "",
+    domain: process.env.SIP_DOMAIN || "",
+    registrar: process.env.SIP_REGISTRAR || "",
     registrar_port: parseInt(process.env.SIP_REGISTRAR_PORT) || 5060,
     expiry: parseInt(process.env.SIP_EXPIRY) || 3600
   },
-  external_ip: process.env.EXTERNAL_IP || "10.70.7.81",
+  external_ip: process.env.EXTERNAL_IP || "",
   http_port: parseInt(process.env.HTTP_PORT) || 3000,
   ws_port: parseInt(process.env.WS_PORT) || 3001,
   audio_dir: process.env.AUDIO_DIR || "/tmp/voice-audio"

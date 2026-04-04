@@ -52,18 +52,23 @@ async function initiateOutboundCall(srf, mediaServer, options) {
     // Get local SDP from FreeSWITCH
     const localSdp = endpoint.local.sdp;
 
-    // Format SIP URI for 3CX
-    // Remove '+' from E.164 format for SIP URI
-    // Internal extensions: dial as-is. External (E.164 with +): add 9 prefix for PSTN
+    // Format SIP URI for outbound call
+    // Internal extensions: dial as-is. External (E.164 with +): strip '+' and optionally
+    // prepend OUTBOUND_PSTN_PREFIX (e.g., '9' for 3CX, empty for most FreePBX/Asterisk setups
+    // where the trunk handles routing directly).
     const isExternal = to.startsWith('+');
-    const phoneNumber = isExternal ? '9' + to.replace(/^\+1?/, '') : to;
-    const sipTrunkHost = process.env.SIP_TRUNK_HOST || '10.70.7.50';
-    const externalIp = process.env.EXTERNAL_IP || '10.70.7.81';
-    const defaultCallerId = callerId || process.env.DEFAULT_CALLER_ID || '+15551234567';
+    const pstnPrefix = process.env.OUTBOUND_PSTN_PREFIX || '';
+    const phoneNumber = isExternal ? pstnPrefix + to.replace(/^\+/, '') : to;
+    const sipTrunkHost = process.env.SIP_TRUNK_HOST;
+    if (!sipTrunkHost) {
+      throw new Error('SIP_TRUNK_HOST environment variable is required for outbound calls');
+    }
+    const externalIp = process.env.EXTERNAL_IP || '';
+    const defaultCallerId = callerId || process.env.DEFAULT_CALLER_ID || '';
 
-    // SIP Authentication for 3CX extension registration
-    const sipAuthUsername = process.env.SIP_AUTH_USERNAME;
-    const sipAuthPassword = process.env.SIP_AUTH_PASSWORD;
+    // SIP Authentication credentials (optional — only needed if PBX requires auth for outbound)
+    const sipAuthUsername = process.env.SIP_AUTH_USERNAME || process.env.SIP_USERNAME;
+    const sipAuthPassword = process.env.SIP_AUTH_PASSWORD || process.env.SIP_PASSWORD;
 
     const sipUri = 'sip:' + phoneNumber + '@' + sipTrunkHost;
 
@@ -92,7 +97,10 @@ async function initiateOutboundCall(srf, mediaServer, options) {
     };
 
     // Add SIP authentication - prefer device credentials, fall back to env vars
-    const authUsername = deviceConfig ? deviceConfig.authId : sipAuthUsername;
+    // Device auth username: use explicit username/authId if set, otherwise use extension (FreePBX style)
+    const authUsername = deviceConfig
+      ? (deviceConfig.username || deviceConfig.authId || deviceConfig.extension)
+      : sipAuthUsername;
     const authPassword = deviceConfig ? deviceConfig.password : sipAuthPassword;
 
     if (authUsername && authPassword) {

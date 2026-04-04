@@ -1,10 +1,10 @@
 # Claude Phone
 
-Voice interface for Claude Code via SIP/3CX. Call your AI, and your AI can call you.
+Voice interface for Claude Code via SIP. Works with 3CX, FreePBX, Asterisk, and any standard SIP PBX. Call your AI, and your AI can call you.
 
 ## Project Overview
 
-Claude Phone gives your Claude Code installation a phone number through 3CX PBX integration:
+Claude Phone gives your Claude Code installation a phone number through SIP PBX integration (3CX, FreePBX, Asterisk, etc.):
 - **Inbound**: Call an extension and talk to Claude - run commands, check status, ask questions
 - **Outbound**: Your server can call YOU with alerts, then have a conversation about what to do
 
@@ -233,8 +233,12 @@ See `.env.example` for all variables. Key ones:
 | `CLAUDE_API_URL` | URL to claude-api-server |
 | `ELEVENLABS_API_KEY` | TTS API key |
 | `OPENAI_API_KEY` | Whisper STT API key |
-| `SIP_DOMAIN` | 3CX server FQDN |
+| `SIP_DOMAIN` | PBX server FQDN or IP |
 | `SIP_REGISTRAR` | SIP registrar address |
+| `SIP_PASSWORD` | SIP extension password |
+| `SIP_USERNAME` | SIP auth username (3CX only — omit for FreePBX/Asterisk) |
+| `OUTBOUND_PSTN_PREFIX` | Digit prefix for outbound PSTN calls (`9` for 3CX, blank for FreePBX) |
+| `SIP_TRUNK_HOST` | PBX/trunk IP for outbound calls |
 
 ## Documentation
 

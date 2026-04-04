@@ -1,11 +1,12 @@
 const Srf = require('drachtio-srf');
 
 /**
- * Handles SIP Registration (UAC) with 3CX
- * 
- * 3CX requires:
+ * Handles SIP Registration (UAC) with any SIP PBX (3CX, FreePBX, Asterisk, etc.)
+ *
+ * SIP credential handling:
  * - From/To/Contact: Use EXTENSION NUMBER (e.g., 5756)
- * - Auth credentials: Use AUTH ID + PASSWORD (e.g., pEmNzYscb4)
+ * - Auth username: Uses auth_id if provided (3CX style), otherwise falls back to
+ *   extension number (FreePBX/Asterisk style where extension IS the username)
  */
 class Registrar {
   constructor(srf, config) {
@@ -15,12 +16,12 @@ class Registrar {
     // Extension number for From/To/Contact headers
     this.extension = config.extension;
 
-    // Auth credentials (separate from extension)
-    this.authId = config.auth_id;
+    // Auth username: 3CX uses a separate auth ID; FreePBX uses the extension number
+    this.authUsername = config.auth_id || config.extension;
     this.password = config.password;
 
     // Server addresses
-    this.domain = config.domain; // 3CX server address
+    this.domain = config.domain;
     this.registrar = config.registrar; // Usually same as domain
     this.registrarPort = config.registrar_port || 5060;
 
@@ -36,7 +37,7 @@ class Registrar {
   start() {
     console.log('[REGISTRAR] Starting registration:');
     console.log('  Extension: ' + this.extension + '@' + this.domain);
-    console.log('  Auth ID: ' + this.authId);
+    console.log('  Auth username: ' + this.authUsername);
     console.log('  Registrar: ' + this.registrar + ':' + this.registrarPort);
     console.log('  Contact: ' + this.extension + '@' + this.localAddress);
     this._attemptRegistration();
@@ -79,7 +80,7 @@ class Registrar {
           'User-Agent': 'NetworkChuck-VoiceServer/1.0'
         },
         auth: {
-          username: this.authId, // AUTH ID, not extension
+          username: this.authUsername,
           password: this.password
         }
       }, (err, req) => {
@@ -117,7 +118,7 @@ class Registrar {
             // drachtio should handle this automatically with auth object
             // If we're seeing this, auth failed
             console.error('[REGISTRAR] Auth challenge received - credentials may be wrong');
-            console.error('  Auth ID used: ' + this.authId);
+            console.error('  Auth username used: ' + this.authUsername);
             this.registered = false;
             this._scheduleRetry(60);
 

@@ -4,7 +4,7 @@
 
 # Claude Phone
 
-Voice interface for Claude Code via SIP/3CX. Call your AI, and your AI can call you.
+Voice interface for Claude Code via SIP. Works with 3CX, FreePBX, Asterisk, and any standard SIP PBX. Call your AI, and your AI can call you.
 
 ## What is this?
 
@@ -17,7 +17,7 @@ Claude Phone gives your Claude Code installation a phone number. You can:
 
 | Requirement | Where to Get It | Notes |
 |-------------|-----------------|-------|
-| **3CX Cloud Account** | [3cx.com](https://www.3cx.com/) | Free tier works |
+| **SIP PBX** | 3CX, FreePBX, Asterisk, or any SIP-compatible PBX | See [PBX Setup](#pbx-setup) below |
 | **ElevenLabs API Key** | [elevenlabs.io](https://elevenlabs.io/) | For text-to-speech |
 | **OpenAI API Key** | [platform.openai.com](https://platform.openai.com/) | For Whisper speech-to-text |
 | **Claude Code CLI** | [claude.ai/code](https://claude.ai/code) | Requires Claude Max subscription |
@@ -35,7 +35,7 @@ Claude Phone gives your Claude Code installation a phone number. You can:
 ### 1. Install
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/theNetworkChuck/claude-phone/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/lacavatech/claude-phone/main/install.sh | bash
 ```
 
 The installer will:
@@ -76,7 +76,7 @@ Best for: Mac or Linux server that's always on and has Claude Code installed.
 │      │                                                       │
 │      ↓ Call extension 9000                                  │
 │  ┌─────────────┐                                            │
-│  │     3CX     │  ← Cloud PBX                               │
+│  │     PBX     │  ← 3CX / FreePBX / Asterisk                │
 │  └──────┬──────┘                                            │
 │         │                                                    │
 │         ↓                                                    │
@@ -106,7 +106,7 @@ Best for: Dedicated Pi for voice services, Claude running on your main machine.
 │      │                                                       │
 │      ↓ Call extension 9000                                  │
 │  ┌─────────────┐                                            │
-│  │     3CX     │  ← Cloud PBX                               │
+│  │     PBX     │  ← 3CX / FreePBX / Asterisk                │
 │  └──────┬──────┘                                            │
 │         │                                                    │
 │         ↓                                                    │
@@ -130,6 +130,43 @@ claude-phone api-server    # Starts Claude API wrapper on port 3333
 ```
 
 Note: On the API server machine, you don't need to run `claude-phone setup` first - the `api-server` command works standalone.
+
+## PBX Setup
+
+Claude Phone registers as a SIP extension on your PBX. It works with any SIP-compatible system — the main differences are in how you create the extension and what credentials it uses.
+
+### 3CX
+
+1. Log into your 3CX Admin panel
+2. Go to **Extensions** → **Add Extension**
+3. Note the **Extension number**, **Auth ID**, and **Password** from the extension settings
+4. During `claude-phone setup`, enter:
+   - **SIP domain**: your 3CX FQDN (e.g., `mycompany.3cx.us`)
+   - **SIP registrar IP**: your 3CX server LAN IP
+   - **SIP auth username**: the **Auth ID** (it differs from the extension number in 3CX)
+   - **Password**: the extension password
+
+For outbound PSTN calls, set `OUTBOUND_PSTN_PREFIX=9` in your `.env` (3CX routes external calls with a leading 9).
+
+### FreePBX / Asterisk
+
+1. Log into your FreePBX admin panel
+2. Go to **Applications** → **Extensions** → **Add Extension** (type: **PJSIP** recommended)
+3. Set an extension number and password — note them both
+4. During `claude-phone setup`, enter:
+   - **SIP domain**: your PBX hostname or IP (e.g., `192.168.1.100`)
+   - **SIP registrar IP**: same as the PBX IP
+   - **SIP auth username**: leave blank — FreePBX uses the extension number as the auth username
+   - **Password**: the extension password you set
+
+For outbound PSTN calls, leave `OUTBOUND_PSTN_PREFIX` unset — FreePBX outbound routes handle PSTN routing directly via trunks.
+
+### Other SIP PBXes (Kamailio, Lync, etc.)
+
+Claude Phone uses standard SIP REGISTER. You need:
+- An extension/user number (used in `From`/`To`/`Contact` SIP headers)
+- A password for digest authentication
+- Optionally, a separate auth username if your PBX separates identity from auth credentials (set `SIP_USERNAME` in `.env`)
 
 ## CLI Commands
 
@@ -194,9 +231,12 @@ claude-phone logs      # View logs
 | Problem | Likely Cause | Solution |
 |---------|--------------|----------|
 | Calls connect but no audio | Wrong external IP | Re-run `claude-phone setup`, verify LAN IP |
-| Extension not registering | 3CX SBC not running | Check 3CX admin panel |
+| Extension not registering (3CX) | Wrong Auth ID | 3CX uses a separate Auth ID — set `SIP_USERNAME` to the value shown in the extension settings, not the extension number |
+| Extension not registering (FreePBX) | Username mismatch | Leave `SIP_USERNAME` unset — FreePBX uses the extension number as the auth username |
 | "Sorry, something went wrong" | API server unreachable | Check `claude-phone status` |
-| Port conflict on startup | 3CX SBC using port 5060 | Setup auto-detects this; re-run setup |
+| Port conflict on startup | Another SIP process on port 5060 | Setup auto-detects this; re-run setup |
+| Outbound calls fail (no audio path) | Missing `SIP_TRUNK_HOST` | Set `SIP_TRUNK_HOST` in `.env` to your PBX/trunk IP |
+| Outbound calls fail with 404 | Wrong PSTN prefix | 3CX needs `OUTBOUND_PSTN_PREFIX=9`; FreePBX usually needs it empty |
 
 See [Troubleshooting Guide](docs/TROUBLESHOOTING.md) for more.
 

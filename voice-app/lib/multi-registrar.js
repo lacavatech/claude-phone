@@ -1,6 +1,6 @@
 /**
  * Multi-Extension SIP Registrar
- * Registers multiple extensions with 3CX independently
+ * Registers multiple extensions independently with any SIP PBX (3CX, FreePBX, Asterisk, etc.)
  */
 
 class MultiRegistrar {
@@ -29,7 +29,8 @@ class MultiRegistrar {
   registerDevice(device) {
     const config = {
       extension: device.extension,
-      auth_id: device.authId,
+      // auth_id is optional: 3CX uses a separate auth ID; FreePBX/Asterisk use the extension number
+      auth_id: device.username || device.authId || device.extension,
       password: device.password,
       domain: this.baseConfig.domain,
       registrar: this.baseConfig.registrar,
@@ -66,7 +67,7 @@ class MultiRegistrar {
         'User-Agent': 'NetworkChuck-VoiceServer/1.0'
       },
       auth: {
-        username: config.auth_id,
+        username: config.auth_id, // Falls back to extension if no separate auth ID configured
         password: config.password
       }
     }, function(err, req) {

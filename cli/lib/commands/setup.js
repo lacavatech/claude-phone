@@ -20,7 +20,7 @@ import {
 } from '../validators.js';
 import { getLocalIP, getProjectRoot } from '../utils.js';
 import { isRaspberryPi } from '../platform.js';
-import { detect3cxSbc } from '../port-check.js';
+import { detectSipPortConflict } from '../port-check.js';
 import { checkPiPrerequisites } from '../prerequisites.js';
 import { checkClaudeApiServer } from '../network.js';
 import { runPrereqChecks } from '../prereqs.js';
@@ -315,7 +315,7 @@ async function setupVoiceServer(config) {
     config.deployment.mode = 'voice-server';
   }
 
-  // Step 1: 3CX/SIP Configuration
+  // Step 1: SIP Configuration
   console.log(chalk.bold('\n☎️  SIP Configuration'));
   config = await setupSIP(config);
 
@@ -429,7 +429,7 @@ async function setupBoth(config) {
   console.log(chalk.bold('\n📡 API Configuration'));
   config = await setupAPIKeys(config);
 
-  // Step 2: 3CX/SIP Configuration
+  // Step 2: SIP Configuration
   console.log(chalk.bold('\n☎️  SIP Configuration'));
   config = await setupSIP(config);
 
@@ -518,47 +518,47 @@ async function setupPi(config) {
     }
   }
 
-  // Detect 3CX SBC (AC24: Handle port detection failure)
+  // Detect SIP port conflicts (3CX SBC, Asterisk, FreePBX, or any other SIP process on 5060)
   console.log(chalk.bold('\n🔍 Network Detection'));
-  const sbc3cxSpinner = ora('Checking for 3CX SBC (process + UDP/TCP port 5060)...').start();
+  const sipPortSpinner = ora('Checking for SIP processes on port 5060...').start();
 
-  let has3cxSbc;
+  let hasSipConflict;
   let portCheckError = false;
 
   try {
-    has3cxSbc = await detect3cxSbc();
-    if (has3cxSbc) {
-      sbc3cxSpinner.succeed('3CX SBC detected - will use port 5070 for drachtio');
+    hasSipConflict = await detectSipPortConflict();
+    if (hasSipConflict) {
+      sipPortSpinner.succeed('SIP process detected on port 5060 - will use port 5070 for drachtio');
     } else {
-      sbc3cxSpinner.succeed('No 3CX SBC detected - will use standard port 5060');
+      sipPortSpinner.succeed('Port 5060 is free - will use standard port 5060 for drachtio');
     }
   } catch (err) {
     portCheckError = true;
-    sbc3cxSpinner.warn('Port detection failed: ' + err.message);
+    sipPortSpinner.warn('Port detection failed: ' + err.message);
   }
 
-  // AC24: Manual override when port detection fails
+  // Manual override when port detection fails
   if (portCheckError) {
-    console.log(chalk.yellow('\n⚠️  Could not automatically detect 3CX SBC'));
+    console.log(chalk.yellow('\n⚠️  Could not automatically detect SIP processes'));
     const { manualSbc } = await inquirer.prompt([
       {
         type: 'confirm',
         name: 'manualSbc',
-        message: 'Is 3CX SBC running on port 5060?',
+        message: 'Is another SIP process (3CX SBC, Asterisk, FreePBX) already using port 5060?',
         default: false
       }
     ]);
-    has3cxSbc = manualSbc;
+    hasSipConflict = manualSbc;
 
-    if (has3cxSbc) {
-      console.log(chalk.green('✓ Will use port 5070 for drachtio (avoid conflict with SBC)\n'));
+    if (hasSipConflict) {
+      console.log(chalk.green('✓ Will use port 5070 for drachtio (avoid conflict with SIP process)\n'));
     } else {
       console.log(chalk.green('✓ Will use port 5060 for drachtio\n'));
     }
   }
 
-  config.deployment.pi.has3cxSbc = has3cxSbc;
-  config.deployment.pi.drachtioPort = has3cxSbc ? 5070 : 5060;
+  config.deployment.pi.has3cxSbc = hasSipConflict; // field kept for config compatibility
+  config.deployment.pi.drachtioPort = hasSipConflict ? 5070 : 5060;
 
   // Ask for API server IP and port first, then check connectivity
   const apiServerAnswers = await inquirer.prompt([
@@ -617,8 +617,8 @@ async function setupPi(config) {
   console.log(chalk.bold('\n📡 API Configuration'));
   config = await setupAPIKeys(config);
 
-  // Step 2: 3CX SBC Configuration (Pi mode uses SBC)
-  console.log(chalk.bold('\n📡 3CX SBC Connection'));
+  // Step 2: SIP PBX Configuration
+  console.log(chalk.bold('\n📡 SIP PBX Connection'));
   config = await setupSBC(config);
 
   // Step 3: Device Configuration
@@ -839,7 +839,7 @@ async function setupSIP(config) {
     {
       type: 'input',
       name: 'domain',
-      message: '3CX domain (e.g., your-3cx.3cx.us):',
+      message: 'SIP domain (e.g., pbx.example.com or your-tenant.3cx.us):',
       default: config.sip.domain,
       validate: (input) => {
         if (!input || input.trim() === '') {
@@ -854,14 +854,14 @@ async function setupSIP(config) {
     {
       type: 'input',
       name: 'registrar',
-      message: '3CX registrar IP (e.g., 192.168.1.100):',
+      message: 'SIP registrar IP or hostname (e.g., 192.168.1.100):',
       default: config.sip.registrar,
       validate: (input) => {
         if (!input || input.trim() === '') {
-          return 'SIP registrar IP is required';
+          return 'SIP registrar is required';
         }
-        if (!validateIP(input)) {
-          return 'Invalid IP address format';
+        if (!validateIP(input) && !validateHostname(input)) {
+          return 'Invalid IP address or hostname';
         }
         return true;
       }
@@ -881,18 +881,19 @@ async function setupSIP(config) {
  */
 async function setupSBC(config) {
   // Display pre-requisite information
-  console.log(chalk.cyan('\nℹ️  Pre-requisite: You must create an SBC in 3CX Admin first'));
-  console.log(chalk.gray('   (Admin → Settings → SBC → Add SBC → Raspberry Pi)\n'));
+  console.log(chalk.cyan('\nℹ️  Pre-requisite: Register this device as an extension in your PBX admin panel first'));
+  console.log(chalk.gray('   3CX: Admin → Settings → SBC → Add SBC → Raspberry Pi'));
+  console.log(chalk.gray('   FreePBX: Admin → Applications → Extensions → Add Extension\n'));
 
   const answers = await inquirer.prompt([
     {
       type: 'input',
       name: 'fqdn',
-      message: '3CX FQDN (e.g., mycompany.3cx.us):',
+      message: 'SIP domain / PBX hostname (e.g., pbx.example.com or mycompany.3cx.us):',
       default: config.sip.domain,
       validate: (input) => {
         if (!input || input.trim() === '') {
-          return '3CX FQDN is required';
+          return 'SIP domain is required';
         }
         if (!validateHostname(input)) {
           return 'Invalid hostname format';
@@ -902,7 +903,7 @@ async function setupSBC(config) {
     }
   ]);
 
-  // Domain is the 3CX FQDN (for From/To SIP headers)
+  // Domain is the PBX FQDN (for From/To SIP headers)
   config.sip.domain = answers.fqdn;
   // Registrar is the LOCAL SBC (drachtio registers with local SBC, not cloud)
   config.sip.registrar = '127.0.0.1';
@@ -946,15 +947,9 @@ async function setupDevice(config) {
     },
     {
       type: 'input',
-      name: 'authId',
-      message: 'SIP auth ID:',
-      default: existingDevice?.authId || '',
-      validate: (input) => {
-        if (!input || input.trim() === '') {
-          return 'Auth ID is required';
-        }
-        return true;
-      }
+      name: 'username',
+      message: 'SIP auth username (leave blank to use extension — required for 3CX, optional for FreePBX/Asterisk):',
+      default: existingDevice?.username || existingDevice?.authId || ''
     },
     {
       type: 'password',
@@ -1022,7 +1017,9 @@ async function setupDevice(config) {
   const device = {
     name: answers.name,
     extension: answers.extension,
-    authId: answers.authId,
+    // username is only stored when explicitly provided (3CX style);
+    // omitting it causes the extension number to be used as auth username (FreePBX/Asterisk style)
+    ...(answers.username ? { username: answers.username } : {}),
     password: answers.password,
     voiceId: answers.voiceId,
     prompt: answers.prompt

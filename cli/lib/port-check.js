@@ -99,7 +99,7 @@ export async function checkUdpPort(port, timeout = 1000) {
 }
 
 /**
- * Check if 3CX SBC process is running
+ * Check if 3CX SBC process is running specifically
  * @returns {Promise<boolean>} True if 3cxsbc process is running
  */
 export async function check3cxSbcProcess() {
@@ -112,12 +112,15 @@ export async function check3cxSbcProcess() {
 }
 
 /**
- * Detect if 3CX SBC is running
+ * Detect if something is already occupying SIP port 5060, which would require
+ * drachtio to use an alternate port (5070). This applies to 3CX SBC as well as
+ * any other SIP process (Asterisk, FreePBX, etc.) running on the same host.
+ *
  * Checks: 1) 3cxsbc process, 2) UDP port 5060, 3) TCP port 5060
- * @returns {Promise<boolean>} True if 3CX SBC detected
+ * @returns {Promise<boolean>} True if port 5060 is in use
  */
-export async function detect3cxSbc() {
-  // Check for 3cxsbc process first (most reliable)
+export async function detectSipPortConflict() {
+  // Check for 3CX SBC process (most reliable for 3CX deployments)
   const processRunning = await check3cxSbcProcess();
   if (processRunning) {
     return true;
@@ -133,3 +136,8 @@ export async function detect3cxSbc() {
   const tcpResult = await checkPort(5060);
   return tcpResult.inUse;
 }
+
+/**
+ * @deprecated Use detectSipPortConflict() instead
+ */
+export const detect3cxSbc = detectSipPortConflict;

@@ -7,8 +7,9 @@
  * Each device has:
  * - name: Human-readable identifier (e.g., "Cephanie", "Morpheus")
  * - extension: SIP extension number (e.g., "9002")
- * - authId: 3CX authentication ID for SIP REGISTER
- * - password: 3CX authentication password
+ * - password: SIP password for authentication
+ * - username: (optional) SIP auth username — required for 3CX (which uses a separate auth ID);
+ *             omit for FreePBX/Asterisk where the extension number is the auth username
  * - voiceId: ElevenLabs voice ID for TTS
  * - prompt: System prompt that defines device personality
  */
@@ -20,13 +21,13 @@ const logger = require('./logger');
 const CONFIG_PATH = path.join(__dirname, '../config/devices.json');
 
 // Default device (Morpheus) - used when config file missing or no match found
+// No username/authId here — configure via devices.json for real deployments
 const MORPHEUS_DEFAULT = {
   name: 'Morpheus',
   extension: '9000',
-  authId: 'Au0XZPTpJY',
-  password: 'DGHwMW6v25',
-  voiceId: 'JAgnJveGGUh4qy4kh6dF',
-  prompt: 'You are Morpheus, Chuck\'s principal AI assistant. You are meticulous, systematic, and excellence-driven. Keep voice responses under 40 words.'
+  password: '',
+  voiceId: '',
+  prompt: 'You are a helpful AI assistant. Keep voice responses under 40 words.'
 };
 
 class DeviceRegistry {
@@ -138,12 +139,14 @@ class DeviceRegistry {
 
   /**
    * Get devices that have auth credentials for SIP registration
-   * Returns array of devices with authId and password
+   * A device is registrable if it has a password set.
+   * The auth username defaults to the extension if no separate username/authId is configured
+   * (FreePBX/Asterisk style) or uses username/authId if present (3CX style).
    */
   getRegistrableDevices() {
     const registrable = [];
     for (const device of Object.values(this.devices)) {
-      if (device.authId && device.password) {
+      if (device.password) {
         registrable.push(device);
       }
     }
@@ -157,7 +160,7 @@ class DeviceRegistry {
   getRegistrationConfigs() {
     const configs = {};
     for (const [ext, device] of Object.entries(this.devices)) {
-      if (device.authId && device.password) {
+      if (device.password) {
         configs[ext] = device;
       }
     }
