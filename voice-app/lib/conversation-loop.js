@@ -400,20 +400,32 @@ async function runConversationLoop(endpoint, dialog, callUuid, options) {
     logger.info('Conversation loop ended normally', { callUuid, turns: turnCount });
 
   } catch (error) {
-    logger.error('Conversation loop error', {
-      callUuid,
-      error: error.message,
-      stack: error.stack
-    });
+    // If the error is because the call ended (endpoint/dialog destroyed), don't treat it as
+    // an unexpected error — just clean up silently.
+    const isCallEndedError = (
+      error.message?.includes('endpoint no longer active') ||
+      error.message?.includes('unable to find dialog') ||
+      error.message?.includes('dialog') ||
+      !callActive
+    );
 
-    try {
-      if (session) session.setCaptureEnabled(false);
-      if (callActive) {
+    if (isCallEndedError) {
+      callActive = false;
+      logger.info('Conversation loop ended due to call hangup', { callUuid });
+    } else {
+      logger.error('Conversation loop error', {
+        callUuid,
+        error: error.message,
+        stack: error.stack
+      });
+
+      try {
+        if (session) session.setCaptureEnabled(false);
         const errUrl = await ttsService.generateSpeech("Sorry, something went wrong.", voiceId);
         await endpoint.play(errUrl);
+      } catch (e) {
+        // Ignore cleanup errors
       }
-    } catch (e) {
-      // Ignore cleanup errors
     }
   } finally {
     logger.info('Conversation loop cleanup', { callUuid });
@@ -438,12 +450,12 @@ async function runConversationLoop(endpoint, dialog, callUuid, options) {
       // Ignore
     }
 
-    // Stop audio fork
+    // Stop audio fork — suppress errors when the call/dialog is already gone
     if (forkRunning) {
       try {
         await endpoint.forkAudioStop();
       } catch (e) {
-        // Ignore
+        // Expected when call ends before we can cleanly stop the fork
       }
     }
   }
